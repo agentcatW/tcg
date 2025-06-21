@@ -103,8 +103,8 @@ module.exports = {
                 )
                 .addStringOption(option =>
                     option.setName('card_id')
-                        .setDescription('The ID of the card to give')
-                        .setRequired(true)
+                        .setDescription('The ID of the card to give (leave empty to browse)')
+                        .setRequired(false)
                 )
         )
         .addSubcommand(subcommand =>
@@ -141,163 +141,247 @@ module.exports = {
 
         const subcommand = interaction.options.getSubcommand();
         
-        if (subcommand === 'coins') {
+        if (subcommand === 'card') {
+            const targetUser = interaction.options.getUser('user');
+            const cardId = interaction.options.getString('card_id');
+            const allCards = getAllCards();
+            
+            if (cardId) {
+                const card = allCards.find(c => c.id === cardId);
+                if (!card) {
+                    return interaction.reply({
+                        content: '❌ Card not found!',
+                        ephemeral: true
+                    });
+                }
+                return this.giveCard(interaction, targetUser, card);
+            } else {
+                interaction.cards = [...allCards];
+                let currentPage = 0;
+                const totalPages = interaction.cards.length;
+                
+                if (totalPages === 0) {
+                    return interaction.reply({
+                        content: 'No cards available!',
+                        ephemeral: true
+                    });
+                }
+                
+                const { embed, files } = await createCardEmbed(interaction.cards[currentPage], currentPage, totalPages, targetUser);
+                const row = createActionRow(false, totalPages > 1, currentPage);
+                
+                const response = await interaction.reply({
+                    embeds: [embed],
+                    components: [row],
+                    files: files,
+                    ephemeral: false
+                });
+                
+                const filter = i => i.user.id === interaction.user.id;
+                const collector = response.createMessageComponentCollector({ 
+                    filter, 
+                    componentType: ComponentType.Button,
+                    time: 300000
+                });
+                
+                collector.on('collect', async i => {
+                    if (i.customId === 'prev' || i.customId === 'next') {
+                        currentPage += (i.customId === 'next') ? 1 : -1;
+                        const { embed: newEmbed, files: newFiles } = await createCardEmbed(
+                            interaction.cards[currentPage], 
+                            currentPage, 
+                            totalPages, 
+                            targetUser
+                        );
+                        
+                        const newRow = createActionRow(
+                            currentPage > 0,
+                            currentPage < totalPages - 1,
+                            currentPage
+                        );
+                        
+                        await i.update({
+                            embeds: [newEmbed],
+                            components: [newRow],
+                            files: newFiles
+                        });
+                    } else if (i.customId.startsWith('give_')) {
+                        try {
+                            const cardIndex = parseInt(i.customId.split('_')[1]);
+                            const card = interaction.cards[cardIndex];
+                            if (card) {
+                                await this.giveCard(interaction, targetUser, card, i);
+                                collector.stop();
+                            }
+                        } catch (error) {
+                            console.error('Error in button handler:', error);
+                            if (!i.replied && !i.deferred) {
+                                await i.reply({
+                                    content: '❌ An error occurred while processing your request.',
+                                    ephemeral: true
+                                }).catch(console.error);
+                            }
+                        }
+                    }
+                });
+                
+                collector.on('end', (collected, reason) => {
+                    console.log('Collector ended with reason:', reason);
+                    response.edit({ components: [] }).catch(console.error);
+                });
+            }
+        } else if (subcommand === 'coins') {
             const targetUser = interaction.options.getUser('user');
             const amount = interaction.options.getInteger('amount');
             const newBalance = db.addCurrency(targetUser.id, amount);
             
             const embed = new EmbedBuilder()
                 .setColor(0x00FF00)
-                .setTitle('✅ Coins Given')
-                .setDescription(`Successfully gave **${amount.toLocaleString()}** <:coin:1381692942196150292> to ${targetUser}`)
-                .setFooter({ text: `New balance: ${newBalance.toLocaleString()} coins` });
+                .setDescription(`✅ Successfully gave ${amount} coins to ${targetUser}!\nNew balance: ${newBalance}`);
                 
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed], ephemeral: false });
         }
-        
-        const targetUser = interaction.options.getUser('user');
-        const cardId = interaction.options.getString('card_id');
-        const allCards = getAllCards();
-        const totalPages = allCards.length;
-        let currentPage = 0;
-        
-        interaction.cards = allCards;
-        
-        const card = allCards.find(c => c.id === cardId);
-        if (!card) {
-            return interaction.reply({
-                content: '❌ Card not found. Use /catalog to find card IDs.',
-                ephemeral: true
-            });
-        }
-        
-        await this.giveCard(interaction, targetUser, card);
-        
-        const { embed, files } = await createCardEmbed(interaction.cards[currentPage], currentPage, totalPages, targetUser);
-        const row = createActionRow(
-            false,
-            totalPages > 1,
-            currentPage
-        );
-        
-        const response = await interaction.reply({
-            embeds: [embed],
-            components: [row],
-            files: files,
-            ephemeral: true
-        });
-        
-        const filter = i => i.user.id === interaction.user.id;
-        const collector = response.createMessageComponentCollector({ 
-            filter,
-            componentType: ComponentType.Button,
-            time: 300000
-        });
-        
-        collector.on('collect', async i => {
-            if (i.customId === 'prev' || i.customId === 'next') {
-                currentPage += (i.customId === 'next') ? 1 : -1;
-                const newCard = allCards[currentPage];
-                
-                const { embed: newEmbed, files: newFiles } = await createCardEmbed(newCard, currentPage, totalPages, targetUser);
-                const newRow = createActionRow(
-                    currentPage > 0,
-                    currentPage < totalPages - 1,
-                    currentPage
-                );
-                
-                await i.update({
-                    embeds: [newEmbed],
-                    components: [newRow],
-                    files: newFiles
-                });
-            } else if (i.customId.startsWith('give_')) {
-                try {
-                    console.log('Give button clicked with ID:', i.customId);
-                    const cardIndex = parseInt(i.customId.split('_')[1]);
-                    console.log('Card index:', cardIndex);
-                    
-                    const card = allCards[cardIndex];
-                    console.log('Found card:', card ? card.name : 'Not found');
-                    
-                    if (card) {
-                        console.log('Calling giveCard with card:', card.name);
-                        await this.giveCard(interaction, targetUser, card, i);
-                        collector.stop();
-                    } else {
-                        console.error('Card not found at index:', cardIndex);
-                        await i.reply({
-                            content: '❌ Error: Could not find the selected card. Please try again.',
-                            ephemeral: true
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error in button handler:', error);
-                    if (!i.replied && !i.deferred) {
-                        await i.reply({
-                            content: '❌ An error occurred while processing your request.',
-                            ephemeral: true
-                        }).catch(console.error);
-                    }
-                }
-            }
-        });
-        
-        collector.on('end', (collected, reason) => {
-            console.log('Collector ended with reason:', reason);
-            response.edit({ components: [] }).catch(console.error);
-        });
-        
-        collector.on('error', error => {
-            console.error('Collector error:', error);
-        });
     },
     
     async giveCard(interaction, targetUser, card, buttonInteraction) {
-        if (!card) {
-            const embed = new EmbedBuilder()
-                .setColor(0xFF0000)
-                .setTitle('❌ Error')
-                .setDescription('Card not found!');
+        try {
+            if (!card || !card.id) {
+                console.error('Invalid card data:', card);
+                const errorEmbed = new EmbedBuilder()
+                    .setColor(0xFF0000)
+                    .setDescription('❌ Invalid card data. Please try again.');
+                
+                if (buttonInteraction) {
+                    if (buttonInteraction.deferred || buttonInteraction.replied) {
+                        return buttonInteraction.editReply({ 
+                            embeds: [errorEmbed],
+                            components: [] 
+                        });
+                    }
+                    return buttonInteraction.update({ 
+                        embeds: [errorEmbed],
+                        components: [] 
+                    });
+                } else if (!interaction.replied && !interaction.deferred) {
+                    return interaction.reply({ 
+                        embeds: [errorEmbed],
+                        ephemeral: true
+                    });
+                } else {
+                    return interaction.editReply({ 
+                        embeds: [errorEmbed],
+                        components: [] 
+                    });
+                }
+            }
             
-            if (buttonInteraction) {
-                return buttonInteraction.update({ embeds: [embed], components: [] });
+            console.log('Giving card to user:', targetUser.username);
+            console.log('Card details:', {
+                id: card.id,
+                name: card.name,
+                image: card.image,
+                imagePath: card.imagePath,
+                rarity: card.rarity
+            });
+
+            const user = db.getUser(targetUser.id);
+            if (!user.cards) user.cards = [];
+            
+            const cardExists = user.cards.some(c => c.id === card.id);
+            if (cardExists) {
+                console.log('Card already exists in user\'s collection:', card.id);
+                const errorEmbed = new EmbedBuilder()
+                    .setColor(0xFF0000)
+                    .setDescription(`❌ ${targetUser} already has **${card.name}** in their collection.`);
+                
+                if (buttonInteraction) {
+                    if (buttonInteraction.deferred || buttonInteraction.replied) {
+                        return buttonInteraction.editReply({ 
+                            embeds: [errorEmbed],
+                            components: [] 
+                        });
+                    }
+                    return buttonInteraction.update({ 
+                        embeds: [errorEmbed],
+                        components: [] 
+                    });
+                } else if (!interaction.replied && !interaction.deferred) {
+                    return interaction.reply({ 
+                        embeds: [errorEmbed],
+                        ephemeral: true
+                    });
+                } else {
+                    return interaction.editReply({ 
+                        embeds: [errorEmbed],
+                        components: [] 
+                    });
+                }
             } else {
-                return interaction.reply({ embeds: [embed], ephemeral: true });
+                user.cards.push(card);
+                db.saveUsers();
+            }
+
+            const successEmbed = new EmbedBuilder()
+                .setColor(0x00FF00)
+                .setDescription(`✅ Successfully gave **${card.name}** to ${targetUser}!`);
+
+            if (buttonInteraction) {
+                if (buttonInteraction.deferred || buttonInteraction.replied) {
+                    return buttonInteraction.editReply({
+                        embeds: [successEmbed],
+                        components: []
+                    });
+                }
+                return buttonInteraction.update({
+                    embeds: [successEmbed],
+                    components: []
+                });
+            } else if (!interaction.replied && !interaction.deferred) {
+                return interaction.reply({
+                    embeds: [successEmbed],
+                    ephemeral: false
+                });
+            } else {
+                return interaction.editReply({
+                    embeds: [successEmbed],
+                    components: []
+                });
+            }
+        } catch (error) {
+            console.error('Error giving card:', error);
+            const errorEmbed = new EmbedBuilder()
+                .setColor(0xFF0000)
+                .setDescription('❌ An error occurred while processing your request.');
+                
+            if (buttonInteraction) {
+                if (buttonInteraction.deferred || buttonInteraction.replied) {
+                    return buttonInteraction.editReply({ 
+                        embeds: [errorEmbed],
+                        components: [] 
+                    });
+                }
+                return buttonInteraction.update({ 
+                    embeds: [errorEmbed],
+                    components: [] 
+                });
+            } else if (!interaction.replied && !interaction.deferred) {
+                return interaction.reply({ 
+                    embeds: [errorEmbed],
+                    ephemeral: true
+                });
+            } else {
+                return interaction.editReply({ 
+                    embeds: [errorEmbed],
+                    components: [] 
+                });
             }
         }
-        console.log('Giving card to user:', targetUser.username);
-        console.log('Card being given:', {
-            id: card.id,
-            name: card.name,
-            image: card.image,
-            imagePath: card.imagePath,
-            rarity: card.rarity
-        });
-        
-        if (!buttonInteraction) {
-            await interaction.deferReply({ ephemeral: true });
-        }
-        
-        db.addCard(targetUser.id, card);
-        
-        const embed = new EmbedBuilder()
-            .setColor(RARITY_COLORS[card.rarity] || 0x808080)
-            .setTitle(`✅ Card Given to ${targetUser.username}`)
-            .setDescription(`**${card.name}** has been added to ${targetUser}'s collection.`)
-            .addFields(
-                { name: 'Rarity', value: card.rarity, inline: true },
-                { name: 'OVR', value: calculateOVR(card).toString(), inline: true },
-                { name: 'ID', value: `\`${card.id}\``, inline: true }
-            )
-            .setTimestamp();
             
         let files = [];
         const imagePath = card.image || card.imagePath;
         console.log('Attempting to load image from path:', imagePath);
         
         if (imagePath) {
-            console.log('Processing image path:', imagePath);
             try {
                 const imageBuffer = await getImageBuffer(imagePath);
                 
