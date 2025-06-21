@@ -1,8 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder } = require('discord.js');
+const db = require('../../utils/database');
 const path = require('path');
 const fs = require('fs');
 const { getAllCards } = require('../../utils/cards/rollUtils');
-const db = require('../../utils/database');
 const { RARITIES } = require('../../utils/cards/cardTemplate');
 const { getImageBuffer } = require('../../utils/imageCache');
 
@@ -91,15 +91,38 @@ function createActionRow(hasPrev, hasNext, cardIndex) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('give')
-        .setDescription('[Admin] Give a card to a user')
-        .addUserOption(option =>
-            option.setName('user')
-                .setDescription('The user to give the card to')
-                .setRequired(true))
-        .addStringOption(option =>
-            option.setName('card_id')
-                .setDescription('Optional: Directly specify a card ID to give')
-                .setRequired(false)),
+        .setDescription('[Admin] Give items to users')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('card')
+                .setDescription('Give a card to a user')
+                .addUserOption(option =>
+                    option.setName('user')
+                        .setDescription('The user to give the card to')
+                        .setRequired(true)
+                )
+                .addStringOption(option =>
+                    option.setName('card_id')
+                        .setDescription('The ID of the card to give')
+                        .setRequired(true)
+                )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('coins')
+                .setDescription('Give coins to a user')
+                .addUserOption(option =>
+                    option.setName('user')
+                        .setDescription('The user to give coins to')
+                        .setRequired(true)
+                )
+                .addIntegerOption(option =>
+                    option.setName('amount')
+                        .setDescription('Amount of coins to give')
+                        .setRequired(true)
+                        .setMinValue(1)
+                )
+        ),
 
     async execute(interaction) {
         const config = require('../../config/config.json');
@@ -116,26 +139,39 @@ module.exports = {
             });
         }
 
+        const subcommand = interaction.options.getSubcommand();
+        
+        if (subcommand === 'coins') {
+            const targetUser = interaction.options.getUser('user');
+            const amount = interaction.options.getInteger('amount');
+            const newBalance = db.addCurrency(targetUser.id, amount);
+            
+            const embed = new EmbedBuilder()
+                .setColor(0x00FF00)
+                .setTitle('✅ Coins Given')
+                .setDescription(`Successfully gave **${amount.toLocaleString()}** <:coin:1381692942196150292> to ${targetUser}`)
+                .setFooter({ text: `New balance: ${newBalance.toLocaleString()} coins` });
+                
+            return interaction.reply({ embeds: [embed] });
+        }
+        
         const targetUser = interaction.options.getUser('user');
-        const cardIdOption = interaction.options.getString('card_id');
+        const cardId = interaction.options.getString('card_id');
         const allCards = getAllCards();
         const totalPages = allCards.length;
         let currentPage = 0;
         
         interaction.cards = allCards;
         
-        if (cardIdOption) {
-            const card = allCards.find(c => c.id === cardIdOption);
-            if (!card) {
-                return interaction.reply({
-                    content: '❌ Card not found. Use /catalog to find card IDs.',
-                    ephemeral: true
-                });
-            }
-            
-            await this.giveCard(interaction, targetUser, card);
-            return;
+        const card = allCards.find(c => c.id === cardId);
+        if (!card) {
+            return interaction.reply({
+                content: '❌ Card not found. Use /catalog to find card IDs.',
+                ephemeral: true
+            });
         }
+        
+        await this.giveCard(interaction, targetUser, card);
         
         const { embed, files } = await createCardEmbed(interaction.cards[currentPage], currentPage, totalPages, targetUser);
         const row = createActionRow(
@@ -218,6 +254,18 @@ module.exports = {
     },
     
     async giveCard(interaction, targetUser, card, buttonInteraction) {
+        if (!card) {
+            const embed = new EmbedBuilder()
+                .setColor(0xFF0000)
+                .setTitle('❌ Error')
+                .setDescription('Card not found!');
+            
+            if (buttonInteraction) {
+                return buttonInteraction.update({ embeds: [embed], components: [] });
+            } else {
+                return interaction.reply({ embeds: [embed], ephemeral: true });
+            }
+        }
         console.log('Giving card to user:', targetUser.username);
         console.log('Card being given:', {
             id: card.id,

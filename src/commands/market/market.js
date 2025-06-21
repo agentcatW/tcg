@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder } = require('discord.js');
 const db = require('../../utils/database');
 const market = require('../../utils/market');
 
@@ -102,11 +102,140 @@ module.exports = {
                     });
                 }
 
-                const embeds = listings.slice(0, 10).map(createListingEmbed);
-                
-                await interaction.reply({
-                    content: '**Market Listings** (showing 10 most recent)',
-                    embeds: embeds
+                const itemsPerPage = 1;
+                let currentPage = 0;
+                const totalPages = Math.ceil(listings.length / itemsPerPage);
+
+                const getCurrentPageEmbed = () => {
+                    const startIdx = currentPage * itemsPerPage;
+                    const endIdx = startIdx + itemsPerPage;
+                    const currentListings = listings.slice(startIdx, endIdx);
+                    
+                    if (currentListings.length === 0) return { embed: null, files: [] };
+                    
+                    const result = createListingEmbed(currentListings[0]);
+                    result.embed.setFooter({ 
+                        text: `Page ${currentPage + 1} of ${totalPages} • Use the buttons to navigate`,
+                        iconURL: interaction.user.displayAvatarURL()
+                    });
+                    return result;
+                };
+
+                const row = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('prev')
+                            .setLabel('◀️')
+                            .setStyle(ButtonStyle.Secondary)
+                            .setDisabled(currentPage === 0),
+                        new ButtonBuilder()
+                            .setCustomId('buy')
+                            .setLabel('Buy Now')
+                            .setStyle(ButtonStyle.Success)
+                            .setEmoji('💰'),
+                        new ButtonBuilder()
+                            .setCustomId('next')
+                            .setLabel('▶️')
+                            .setStyle(ButtonStyle.Secondary)
+                            .setDisabled(currentPage >= totalPages - 1)
+                    );
+
+                const currentPageData = getCurrentPageEmbed();
+                if (!currentPageData || !currentPageData.embed) {
+                    return interaction.reply({
+                        content: 'No listings available in the market!',
+                        ephemeral: true
+                    });
+                }
+
+                const replyOptions = {
+                    embeds: [currentPageData.embed],
+                    components: [row],
+                    fetchReply: true
+                };
+
+                if (currentPageData.files && currentPageData.files.length > 0) {
+                    replyOptions.files = currentPageData.files;
+                }
+
+                const response = await interaction.reply(replyOptions);
+
+                const filter = i => i.user.id === interaction.user.id;
+                const collector = response.createMessageComponentCollector({ 
+                    filter, 
+                    componentType: ComponentType.Button,
+                    time: 300000
+                });
+
+                collector.on('collect', async i => {
+                    if (i.customId === 'prev' && currentPage > 0) {
+                        currentPage--;
+                    } else if (i.customId === 'next' && currentPage < totalPages - 1) {
+                        currentPage++;
+                    } else if (i.customId === 'buy') {
+                        const currentListings = listings.slice(
+                            currentPage * itemsPerPage, 
+                            (currentPage * itemsPerPage) + itemsPerPage
+                        );
+                        
+                        if (currentListings.length > 0) {
+                            const listing = currentListings[0];
+                            const buyer = db.getUser(interaction.user.id);
+                            const seller = db.getUser(listing.sellerId);
+                            
+                            if (buyer.currency < listing.price) {
+                                return i.reply({
+                                    content: '❌ You don\'t have enough coins to buy this card!',
+                                    ephemeral: true
+                                });
+                            }
+                            
+                            buyer.currency -= listing.price;
+                            seller.currency = (seller.currency || 0) + listing.price;
+                            
+                            buyer.cards = buyer.cards || [];
+                            buyer.cards.push(listing.card);
+                            
+                            market.removeListing(listing.id);
+                            
+                            db.saveUsers();
+                            
+                            await i.update({
+                                content: `✅ Successfully purchased **${listing.card.name}** for ${listing.price} <:coin:1381692942196150292>!`,
+                                embeds: [],
+                                components: []
+                            });
+                            return;
+                        }
+                    }
+                    
+                    row.components[0].setDisabled(currentPage === 0);
+                    row.components[2].setDisabled(currentPage >= totalPages - 1);
+                    
+                    const currentPageData = getCurrentPageEmbed();
+                    if (!currentPageData || !currentPageData.embed) {
+                        return i.update({
+                            content: 'This listing is no longer available.',
+                            embeds: [],
+                            components: []
+                        });
+                    }
+
+                    const updateOptions = {
+                        embeds: [currentPageData.embed],
+                        components: [row]
+                    };
+
+                    if (currentPageData.files && currentPageData.files.length > 0) {
+                        updateOptions.files = currentPageData.files;
+                    }
+
+                    await i.update(updateOptions);
+                });
+
+                collector.on('end', () => {
+                    if (!response.editable) return;
+                    response.edit({ components: [] }).catch(console.error);
                 });
             }
         }
@@ -114,25 +243,43 @@ module.exports = {
 };
 
 function createListingEmbed(listing) {
-    const card = listing.card;
+    const card = listing.card || {};
+    const stats = card.stats || { hp: 0, strength: 0, defense: 0, speed: 0 };
+    
     const calculateOVR = (card) => {
         if (card.ovr) return Math.min(99, card.ovr);
-        const ovr = Math.round((card.stats.strength + card.stats.defense + card.stats.speed + (card.stats.hp / 2)) / 4);
+        const ovr = Math.round((stats.strength + stats.defense + stats.speed + (stats.hp / 2)) / 4);
         return Math.min(99, ovr);
     };
+    
     const ovr = calculateOVR(card);
+    const title = `${card.name || 'Unnamed Card'} - ${listing.price?.toLocaleString() || '0'} <:coin:1381692942196150292>`;
+    const description = `**${card.rarity || 'N/A'}** • OVR: ${ovr}`;
 
     const embed = new EmbedBuilder()
-        .setTitle(`${card.name} - ${listing.price} <:coin:1381692942196150292>`)
-        .addFields(
-            { name: 'Rarity', value: card.rarity || 'N/A', inline: true },
-            { name: 'OVR', value: ovr.toString(), inline: true },
-            { name: 'Stats', value: `❤️ ${card.stats.hp} | ⚔️ ${card.stats.strength} | 🛡️ ${card.stats.defense} | 🏃 ${card.stats.speed}` },
-            { name: 'Listing ID', value: `\`${listing.id}\``, inline: true },
-            { name: 'Seller', value: `<@${listing.sellerId}>`, inline: true }
-        )
-        .setColor(0x3498db)
-        .setFooter({ text: `Listing ID: ${listing.id}` });
+        .setTitle(title)
+        .setDescription(description)
+        .setColor(0x3498db);
 
-    return embed;
+    const statsValue = `❤️ ${stats.hp} | ⚔️ ${stats.strength} | 🛡️ ${stats.defense} | 🏃 ${stats.speed}`;
+    embed.addFields(
+        { name: 'Stats', value: statsValue, inline: false },
+        { name: 'Seller', value: `<@${listing.sellerId || 'unknown'}>`, inline: true },
+        { name: 'Listing ID', value: `\`${listing.id || 'N/A'}\``, inline: true }
+    );
+    
+    const result = { embed, files: [] };
+    
+    if (card.image) {
+        try {
+            const filename = card.image.split('/').pop();
+            const attachment = new AttachmentBuilder(card.image, { name: filename });
+            embed.setThumbnail(`attachment://${filename}`);
+            result.files.push(attachment);
+        } catch (error) {
+            console.error('Error loading image:', error);
+        }
+    }
+
+    return result;
 }
