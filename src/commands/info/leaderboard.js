@@ -198,51 +198,85 @@ module.exports = {
                         .setDisabled(totalPages <= 1)
                 );
 
-            const message = await interaction.reply({ 
-                embeds: [await getLeaderboardEmbed(currentPage)],
+            const initialEmbed = await getLeaderboardEmbed(currentPage);
+            const message = await interaction.reply({
+                embeds: [initialEmbed],
                 components: [row],
-                fetchReply: true 
+                fetchReply: true
             });
-
-            if (totalPages <= 1) return;
 
             const filter = i => i.user.id === interaction.user.id;
-            const collector = message.createMessageComponentCollector({ 
-                componentType: ComponentType.Button,
+            const collector = message.createMessageComponentCollector({
                 filter,
-                time: 300000 
+                componentType: ComponentType.Button,
+                time: 300000
             });
 
-            collector.on('collect', async i => {
-                if (i.isButton()) {
-                    if (i.customId === 'prev_page') {
-                        currentPage = (currentPage - 1 + totalPages) % totalPages;
-                    } else if (i.customId === 'next_page') {
-                        currentPage = (currentPage + 1) % totalPages;
+            let sessionTimeout = setTimeout(() => collector.stop('time'), 300000);
+
+            const handleCollect = async (i) => {
+                try {
+                    clearTimeout(sessionTimeout);
+                    sessionTimeout = setTimeout(() => collector.stop('time'), 300000);
+
+                    if (i.customId === 'prev_page' && currentPage > 0) {
+                        currentPage--;
+                    } else if (i.customId === 'next_page' && currentPage < totalPages - 1) {
+                        currentPage++;
                     }
-                    await i.update({ 
-                        embeds: [await getLeaderboardEmbed(currentPage)], 
-                        components: [row] 
+
+                    row.components[0].setDisabled(currentPage === 0);
+                    row.components[1].setDisabled(currentPage === totalPages - 1);
+
+                    const updatedEmbed = await getLeaderboardEmbed(currentPage);
+                    await i.update({
+                        embeds: [updatedEmbed],
+                        components: [row]
                     });
+                } catch (error) {
+                    console.error('Error handling leaderboard pagination:', error);
+                    if (!i.replied && !i.deferred) {
+                        await i.reply({
+                            content: '❌ An error occurred while updating the leaderboard.',
+                            ephemeral: true
+                        }).catch(console.error);
+                    }
                 }
-            });
+            };
 
-            collector.on('end', async collected => {
-                if (collected.size === 0) {
-                    await message.edit({
-                        content: 'This leaderboard has expired. Please run `/leaderboard` again to view the latest rankings.',
-                        embeds: [],
-                        components: []
-                    }).catch(console.error);
+            const handleEnd = async (collected, reason) => {
+                clearTimeout(sessionTimeout);
+                try {
+                    if (reason === 'time') {
+                        const expiredEmbed = new EmbedBuilder()
+                            .setColor(0x888888)
+                            .setTitle('Session Expired')
+                            .setDescription('The leaderboard session has expired. Use the command again to continue browsing.');
+                        
+                        await message.edit({ 
+                            embeds: [expiredEmbed],
+                            components: [] 
+                        }).catch(() => {});
+                    } else if (reason !== 'messageDelete' && message.editable) {
+                        await message.edit({ components: [] }).catch(() => {});
+                    }
+                } catch (error) {
+                    if (error.code !== 10008) {
+                        console.error('Error cleaning up leaderboard components:', error);
+                    }
                 }
-            });
+            };
 
+            collector.on('collect', handleCollect);
+            collector.on('end', handleEnd);
         } catch (error) {
             console.error('Error in leaderboard command:', error);
-            await interaction.reply({
-                content: 'An error occurred while fetching the leaderboard. Please try again later.',
-                ephemeral: true
-            });
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({
+                    content: 'An error occurred while fetching the leaderboard. Please try again later.',
+                    ephemeral: true
+                }).catch(console.error);
+            }
         }
     },
 };

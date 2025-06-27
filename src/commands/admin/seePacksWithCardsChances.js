@@ -135,46 +135,74 @@ module.exports = {
                     .setDisabled(currentPage === packEmbeds.length - 1)
             );
 
-        const message = await interaction.editReply({
+        const response = await interaction.editReply({
             embeds: [packEmbeds[currentPage].embed],
             components: [row],
             fetchReply: true
         });
 
-        const collector = message.createMessageComponentCollector({
+        const collector = response.createMessageComponentCollector({
             componentType: ComponentType.Button,
             time: 300000
         });
 
         let currentIndex = currentPage;
+        let sessionTimeout = setTimeout(() => collector.stop('time'), 300000);
 
-        collector.on('collect', async i => {
-            if (i.user.id !== interaction.user.id) {
-                return i.reply({ content: 'These buttons are not for you!', ephemeral: true });
+        const handleCollect = async (i) => {
+            try {
+                clearTimeout(sessionTimeout);
+                
+                if (i.user.id !== interaction.user.id) {
+                    return i.reply({ content: 'These buttons are not for you!', ephemeral: true });
+                }
+
+                if (i.customId === 'prev' && currentIndex > 0) {
+                    currentIndex--;
+                } else if (i.customId === 'next' && currentIndex < packEmbeds.length - 1) {
+                    currentIndex++;
+                }
+
+                row.components[0].setDisabled(currentIndex === 0);
+                row.components[1].setDisabled(currentIndex === packEmbeds.length - 1);
+
+                await i.update({
+                    embeds: [packEmbeds[currentIndex].embed],
+                    components: [row]
+                });
+
+                sessionTimeout = setTimeout(() => collector.stop('time'), 300000);
+            } catch (error) {
+                if (error.code !== 10008) {
+                    console.error('Error handling button interaction:', error);
+                }
             }
+        };
 
-            if (i.customId === 'prev' && currentIndex > 0) {
-                currentIndex--;
-            } else if (i.customId === 'next' && currentIndex < packEmbeds.length - 1) {
-                currentIndex++;
+        const handleEnd = async (collected, reason) => {
+            clearTimeout(sessionTimeout);
+            try {
+                if (reason === 'time') {
+                    const expiredEmbed = new EmbedBuilder()
+                        .setColor(0x888888)
+                        .setTitle('Session Expired')
+                        .setDescription('This pack view has expired. Use the command again to view packs.');
+                    
+                    await response.edit({ 
+                        embeds: [expiredEmbed], 
+                        components: [] 
+                    }).catch(() => {});
+                } else if (reason !== 'messageDelete') {
+                    await response.edit({ components: [] }).catch(() => {});
+                }
+            } catch (error) {
+                if (error.code !== 10008) {
+                    console.error('Error cleaning up components:', error);
+                }
             }
+        };
 
-            row.components[0].setDisabled(currentIndex === 0);
-            row.components[1].setDisabled(currentIndex === packEmbeds.length - 1);
-
-            await i.update({
-                embeds: [packEmbeds[currentIndex].embed],
-                components: [row]
-            });
-        });
-
-        collector.on('end', () => {
-            message.edit({ components: [
-                new ActionRowBuilder().addComponents(
-                    row.components[0].setDisabled(true),
-                    row.components[1].setDisabled(true)
-                )
-            ]}).catch(console.error);
-        });
+        collector.on('collect', handleCollect);
+        collector.on('end', handleEnd);
     }
 };

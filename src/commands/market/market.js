@@ -24,10 +24,18 @@ module.exports = {
             const listingId = interaction.options.getString('id');
             
             if (listingId) {
-                const listing = market.getListing(listingId);
+                const marketListings = market.getAllListings();
+                const listing = marketListings.find(l => l.id === listingId);
                 if (!listing) {
                     return interaction.reply({
-                        content: '❌ Listing not found!',
+                        content: '❌ This listing is no longer available!',
+                        ephemeral: true
+                    });
+                }
+                
+                if (listing.sellerId === interaction.user.id) {
+                    return interaction.reply({
+                        content: '❌ You cannot purchase your own listing!',
                         ephemeral: true
                     });
                 }
@@ -94,7 +102,10 @@ module.exports = {
                     });
                 }
             } else {
-                const listings = market.getAllListings();
+                const listings = market.getAllListings().filter(listing => {
+                    return listing && listing.id && listing.card && listing.sellerId;
+                });
+                
                 if (listings.length === 0) {
                     return interaction.reply({
                         content: 'No listings available in the market!',
@@ -173,47 +184,69 @@ module.exports = {
                     } else if (i.customId === 'next' && currentPage < totalPages - 1) {
                         currentPage++;
                     } else if (i.customId === 'buy') {
-                        const currentListings = listings.slice(
-                            currentPage * itemsPerPage, 
-                            (currentPage * itemsPerPage) + itemsPerPage
-                        );
+                        const currentListings = market.getAllListings();
+                        const listingIndex = currentPage * itemsPerPage;
+                        const listingId = listings[listingIndex]?.id;
                         
-                        if (currentListings.length > 0) {
-                            const listing = currentListings[0];
-                            const buyer = db.getUser(interaction.user.id);
-                            const seller = db.getUser(listing.sellerId);
-                            
-                            if (buyer.currency < listing.price) {
-                                return i.reply({
-                                    content: '❌ You don\'t have enough coins to buy this card!',
-                                    ephemeral: true
-                                });
-                            }
-                            
-                            buyer.currency -= listing.price;
-                            seller.currency = (seller.currency || 0) + listing.price;
-                            
-                            buyer.cards = buyer.cards || [];
-                            buyer.cards.push(listing.card);
-                            
-                            market.removeListing(listing.id);
-                            
-                            db.saveUsers();
-                            
+                        const listing = currentListings.find(l => l.id === listingId);
+                        
+                        if (!listing) {
                             await i.update({
-                                content: `✅ Successfully purchased **${listing.card.name}** for ${listing.price} <:coin:1381692942196150292>!`,
+                                content: '❌ This listing is no longer available!',
                                 embeds: [],
                                 components: []
                             });
+                            collector.stop();
                             return;
                         }
+                        
+                        if (listing.sellerId === interaction.user.id) {
+                            return i.reply({
+                                content: '❌ You cannot purchase your own listing!',
+                                ephemeral: true
+                            });
+                        }
+                        
+                        const buyer = db.getUser(interaction.user.id);
+                        const seller = db.getUser(listing.sellerId);
+                        
+                        if (!buyer || !seller) {
+                            return i.reply({
+                                content: '❌ An error occurred processing this transaction.',
+                                ephemeral: true
+                            });
+                        }
+                            
+                        if ((buyer.currency || 0) < listing.price) {
+                            return i.reply({
+                                content: `❌ You don't have enough coins! You need ${listing.price} but only have ${buyer.currency || 0}.`,
+                                ephemeral: true
+                            });
+                        }
+                        
+                        buyer.currency -= listing.price;
+                        seller.currency = (seller.currency || 0) + listing.price;
+                        
+                        buyer.cards = buyer.cards || [];
+                        buyer.cards.push(listing.card);
+                        
+                        market.removeListing(listing.id);
+                        
+                        db.saveUsers();
+                        
+                        await i.update({
+                            content: `✅ Successfully purchased **${listing.card.name}** for ${listing.price} <:coin:1381692942196150292>!`,
+                            embeds: [],
+                            components: []
+                        });
+                        return;
                     }
                     
                     row.components[0].setDisabled(currentPage === 0);
                     row.components[2].setDisabled(currentPage >= totalPages - 1);
                     
-                    const currentPageData = getCurrentPageEmbed();
-                    if (!currentPageData || !currentPageData.embed) {
+                    const updatedPageData = getCurrentPageEmbed();
+                    if (!updatedPageData || !updatedPageData.embed) {
                         return i.update({
                             content: 'This listing is no longer available.',
                             embeds: [],
@@ -221,16 +254,16 @@ module.exports = {
                         });
                     }
 
-                    const updateOptions = {
-                        embeds: [currentPageData.embed],
+                    const updateOpts = {
+                        embeds: [updatedPageData.embed],
                         components: [row]
                     };
 
-                    if (currentPageData.files && currentPageData.files.length > 0) {
-                        updateOptions.files = currentPageData.files;
+                    if (updatedPageData.files && updatedPageData.files.length > 0) {
+                        updateOpts.files = updatedPageData.files;
                     }
 
-                    await i.update(updateOptions);
+                    await i.update(updateOpts);
                 });
 
                 collector.on('end', () => {

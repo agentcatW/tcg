@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ComponentType } = require('discord.js');
 const db = require('../../utils/database');
 const { getSellPriceByOVR } = require('../../utils/cards/cardTemplate');
 const { checkTradeStatus } = require('../../utils/tradeUtils');
@@ -100,35 +100,75 @@ module.exports = {
         });
 
         const filter = i => i.user.id === interaction.user.id;
-        const collector = response.createMessageComponentCollector({ filter, time: 30000 });
+        const collector = response.createMessageComponentCollector({ 
+            filter, 
+            componentType: ComponentType.Button,
+            time: 90000
+        });
 
-        collector.on('collect', async i => {
-            if (i.customId === 'confirm_sell') {
-                user.cards = user.cards.filter(card => 
-                    !eligibleCards.some(c => c.id === card.id)
-                );
+        let sessionTimeout = setTimeout(() => collector.stop('time'), 90000);
+
+        const handleCollect = async (i) => {
+            try {
+                clearTimeout(sessionTimeout);
                 
-                user.currency = (user.currency || 0) + totalValue;
-                db.saveUsers();
+                if (i.customId === 'confirm_sell') {
+                    user.cards = user.cards.filter(card => 
+                        !eligibleCards.some(c => c.id === card.id)
+                    );
+                    
+                    user.currency = (user.currency || 0) + totalValue;
+                    db.saveUsers();
 
-                await i.update({
-                    content: `✅ Sold ${eligibleCards.length} cards for a total of ${totalValue} <:coin:1381692942196150292>!`,
-                    embeds: [],
-                    components: []
-                });
-            } else {
-                await i.update({
-                    content: 'Sale cancelled.',
-                    embeds: [],
-                    components: []
-                });
+                    await i.update({
+                        content: `✅ Sold ${eligibleCards.length} cards for a total of ${totalValue} <:coin:1381692942196150292>!`,
+                        embeds: [],
+                        components: []
+                    });
+                } else if (i.customId === 'cancel_sell') {
+                    await i.update({
+                        content: 'Sale cancelled.',
+                        embeds: [],
+                        components: []
+                    });
+                }
+                
+                collector.stop();
+            } catch (error) {
+                console.error('Error in multi-sell collector:', error);
+                if (!i.replied && !i.deferred) {
+                    await i.reply({
+                        content: '❌ An error occurred while processing your request.',
+                        ephemeral: true
+                    }).catch(console.error);
+                }
             }
-            collector.stop();
-        });
+        };
 
-        collector.on('end', () => {
-            if (!response.editable) return;
-            response.edit({ components: [] }).catch(console.error);
-        });
+        const handleEnd = async (collected, reason) => {
+            clearTimeout(sessionTimeout);
+            try {
+                if (reason === 'time') {
+                    const expiredEmbed = new EmbedBuilder()
+                        .setColor(0x888888)
+                        .setTitle('Session Expired')
+                        .setDescription('The sell confirmation has expired. Please use the command again if you want to sell these cards.');
+                    
+                    await response.edit({ 
+                        embeds: [expiredEmbed], 
+                        components: [] 
+                    }).catch(() => {});
+                } else if (reason !== 'messageDelete' && response.editable) {
+                    await response.edit({ components: [] }).catch(() => {});
+                }
+            } catch (error) {
+                if (error.code !== 10008) {
+                    console.error('Error cleaning up multi-sell components:', error);
+                }
+            }
+        };
+
+        collector.on('collect', handleCollect);
+        collector.on('end', handleEnd);
     }
 };

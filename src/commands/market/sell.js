@@ -151,9 +151,26 @@ module.exports = {
                 const cardIndex = parseInt(i.customId.split('_')[1]);
                 const cardToSell = interaction.cards[cardIndex];
                 
-                if (!cardToSell) {
+                const user = db.getUser(interaction.user.id);
+                const cardInCollection = user.cards?.find(c => c.id === cardToSell?.id);
+                
+                if (!cardInCollection) {
                     await i.update({
-                        content: '❌ Card not found!',
+                        content: '❌ This card is no longer in your collection!',
+                        embeds: [],
+                        components: []
+                    });
+                    return;
+                }
+                
+                const marketListings = market.getAllListings();
+                const alreadyListed = marketListings.some(listing => 
+                    listing.card.id === cardToSell.id && listing.sellerId === interaction.user.id
+                );
+                
+                if (alreadyListed) {
+                    await i.update({
+                        content: '❌ This card is already listed on the market!',
                         embeds: [],
                         components: []
                     });

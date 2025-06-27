@@ -178,57 +178,89 @@ module.exports = {
                 });
                 
                 const filter = i => i.user.id === interaction.user.id;
+                let sessionTimeout = setTimeout(() => collector.stop('time'), 300000);
+
+                const handleCollect = async (i) => {
+                    try {
+                        clearTimeout(sessionTimeout);
+                        
+                        if (i.customId === 'prev' || i.customId === 'next') {
+                            currentPage += (i.customId === 'next') ? 1 : -1;
+                            const { embed: newEmbed, files: newFiles } = await createCardEmbed(
+                                interaction.cards[currentPage], 
+                                currentPage, 
+                                totalPages, 
+                                targetUser
+                            );
+                            
+                            const newRow = createActionRow(
+                                currentPage > 0,
+                                currentPage < totalPages - 1,
+                                currentPage
+                            );
+                            
+                            await i.update({
+                                embeds: [newEmbed],
+                                components: [newRow],
+                                files: newFiles
+                            });
+                            
+                            sessionTimeout = setTimeout(() => collector.stop('time'), 300000);
+                        } else if (i.customId.startsWith('give_')) {
+                            try {
+                                const cardIndex = parseInt(i.customId.split('_')[1]);
+                                const card = interaction.cards[cardIndex];
+                                if (card) {
+                                    await this.giveCard(interaction, targetUser, card, i);
+                                    collector.stop();
+                                    return;
+                                }
+                            } catch (error) {
+                                console.error('Error in button handler:', error);
+                                if (!i.replied && !i.deferred) {
+                                    await i.reply({
+                                        content: '❌ An error occurred while processing your request.',
+                                        ephemeral: true
+                                    }).catch(console.error);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error in collector handler:', error);
+                    }
+                };
+
+                const handleEnd = async (collected, reason) => {
+                    clearTimeout(sessionTimeout);
+                    try {
+                        if (reason === 'time') {
+                            const expiredEmbed = new EmbedBuilder()
+                                .setColor(0x888888)
+                                .setTitle('Session Expired')
+                                .setDescription('This card selection has expired. Use the command again to browse cards.');
+                            
+                            await response.edit({ 
+                                embeds: [expiredEmbed], 
+                                components: [] 
+                            }).catch(() => {});
+                        } else if (reason !== 'messageDelete') {
+                            await response.edit({ components: [] }).catch(() => {});
+                        }
+                    } catch (error) {
+                        if (error.code !== 10008) {
+                            console.error('Error cleaning up components:', error);
+                        }
+                    }
+                };
+
                 const collector = response.createMessageComponentCollector({ 
                     filter, 
                     componentType: ComponentType.Button,
-                    time: 300000
+                    time: 300000 
                 });
                 
-                collector.on('collect', async i => {
-                    if (i.customId === 'prev' || i.customId === 'next') {
-                        currentPage += (i.customId === 'next') ? 1 : -1;
-                        const { embed: newEmbed, files: newFiles } = await createCardEmbed(
-                            interaction.cards[currentPage], 
-                            currentPage, 
-                            totalPages, 
-                            targetUser
-                        );
-                        
-                        const newRow = createActionRow(
-                            currentPage > 0,
-                            currentPage < totalPages - 1,
-                            currentPage
-                        );
-                        
-                        await i.update({
-                            embeds: [newEmbed],
-                            components: [newRow],
-                            files: newFiles
-                        });
-                    } else if (i.customId.startsWith('give_')) {
-                        try {
-                            const cardIndex = parseInt(i.customId.split('_')[1]);
-                            const card = interaction.cards[cardIndex];
-                            if (card) {
-                                await this.giveCard(interaction, targetUser, card, i);
-                                collector.stop();
-                            }
-                        } catch (error) {
-                            console.error('Error in button handler:', error);
-                            if (!i.replied && !i.deferred) {
-                                await i.reply({
-                                    content: '❌ An error occurred while processing your request.',
-                                    ephemeral: true
-                                }).catch(console.error);
-                            }
-                        }
-                    }
-                });
-                
-                collector.on('end', (collected, reason) => {
-                    console.log('Collector ended with reason:', reason);
-                    response.edit({ components: [] }).catch(console.error);
-                });
+                collector.on('collect', handleCollect);
+                collector.on('end', handleEnd);
             }
         } else if (subcommand === 'coins') {
             const targetUser = interaction.options.getUser('user');

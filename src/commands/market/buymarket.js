@@ -17,10 +17,11 @@ module.exports = {
         const userId = interaction.user.id;
         const user = db.getUser(userId);
         
-        const listing = market.getListing(listingId);
+        const marketListings = market.getAllListings();
+        const listing = marketListings.find(l => l.id === listingId);
         if (!listing) {
             return interaction.reply({
-                content: '❌ Listing not found!',
+                content: '❌ This listing is no longer available!',
                 ephemeral: true
             });
         }
