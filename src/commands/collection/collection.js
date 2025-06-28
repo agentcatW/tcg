@@ -229,7 +229,7 @@ async function showPacks(interaction, user, targetUser) {
     }
 
     const packList = Object.entries(packs).map(([pack, count]) => {
-        return `${pack.charAt(0).toUpperCase() + pack.slice(1)} Pack: ${count}`;
+        return `${pack.charAt(0).toUpperCase() + pack.slice(1)} Pack: \`${count}\``;
     }).join('\n');
 
     const embed = new EmbedBuilder()
@@ -237,16 +237,6 @@ async function showPacks(interaction, user, targetUser) {
         .setTitle(title)
         .setDescription(packList)
         .setFooter({ text: `Total: ${totalPacks} packs` });
-
-    for (const [pack, count] of Object.entries(packs)) {
-        if (count > 0) {
-            embed.addFields({
-                name: `${pack.charAt(0).toUpperCase() + pack.slice(1)} Pack`,
-                value: `Quantity: ${count}`,
-                inline: true
-            });
-        }
-    }
 
     await interaction.reply({ 
         embeds: [embed]

@@ -6,6 +6,14 @@ const { getAllCards } = require('../../utils/cards/rollUtils');
 const { RARITIES } = require('../../utils/cards/cardTemplate');
 const { getImageBuffer } = require('../../utils/imageCache');
 
+const PACK_TYPES = [
+    { id: 'beginner', name: 'Beginner Pack', price: 100 },
+    { id: 'novice', name: 'Novice Pack', price: 250 },
+    { id: 'expert', name: 'Expert Pack', price: 500 },
+    { id: 'master', name: 'Master Pack', price: 1000 },
+    { id: 'legend', name: 'Legend Pack', price: 2000 }
+];
+
 const RARITY_COLORS = {
     'C': 0x808080,
     'B': 0x1EFF00,
@@ -106,6 +114,11 @@ module.exports = {
                         .setDescription('The ID of the card to give (leave empty to browse)')
                         .setRequired(false)
                 )
+                .addStringOption(option =>
+                    option.setName('pack_id')
+                        .setDescription('The ID of the pack to give (leave empty to browse)')
+                        .setRequired(false)
+                )
         )
         .addSubcommand(subcommand =>
             subcommand
@@ -120,6 +133,34 @@ module.exports = {
                     option.setName('amount')
                         .setDescription('Amount of coins to give')
                         .setRequired(true)
+                        .setMinValue(1)
+                )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('pack')
+                .setDescription('Give a pack to a user')
+                .addUserOption(option =>
+                    option.setName('user')
+                        .setDescription('The user to give the pack to')
+                        .setRequired(true)
+                )
+                .addStringOption(option =>
+                    option.setName('pack_type')
+                        .setDescription('Type of pack to give')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: 'Beginner Pack', value: 'beginner' },
+                            { name: 'Novice Pack', value: 'novice' },
+                            { name: 'Expert Pack', value: 'expert' },
+                            { name: 'Master Pack', value: 'master' },
+                            { name: 'Legend Pack', value: 'legend' }
+                        )
+                )
+                .addIntegerOption(option =>
+                    option.setName('amount')
+                        .setDescription('Number of packs to give (default: 1)')
+                        .setRequired(false)
                         .setMinValue(1)
                 )
         ),
@@ -144,6 +185,7 @@ module.exports = {
         if (subcommand === 'card') {
             const targetUser = interaction.options.getUser('user');
             const cardId = interaction.options.getString('card_id');
+            const packId = interaction.options.getString('pack_id');
             const allCards = getAllCards();
             
             if (cardId) {
@@ -155,6 +197,15 @@ module.exports = {
                     });
                 }
                 return this.giveCard(interaction, targetUser, card);
+            } else if (packId) {
+                const pack = allCards.find(c => c.packId === packId);
+                if (!pack) {
+                    return interaction.reply({
+                        content: '❌ Pack not found!',
+                        ephemeral: true
+                    });
+                }
+                return this.givePack(interaction, targetUser, pack);
             } else {
                 interaction.cards = [...allCards];
                 let currentPage = 0;
@@ -270,6 +321,36 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(0x00FF00)
                 .setDescription(`✅ Successfully gave ${amount} coins to ${targetUser}!\nNew balance: ${newBalance}`);
+                
+            return interaction.reply({ embeds: [embed], ephemeral: false });
+            
+        } else if (subcommand === 'pack') {
+            const targetUser = interaction.options.getUser('user');
+            const packType = interaction.options.getString('pack_type');
+            const amount = interaction.options.getInteger('amount') || 1;
+            
+            const pack = PACK_TYPES.find(p => p.id === packType);
+            if (!pack) {
+                return interaction.reply({
+                    content: '❌ Invalid pack type!',
+                    ephemeral: true
+                });
+            }
+            
+            const user = db.getUser(targetUser.id);
+            if (!user.packs) user.packs = {};
+            user.packs[packType] = (user.packs[packType] || 0) + amount;
+            db.saveUsers();
+            
+            const embed = new EmbedBuilder()
+                .setColor(0x00FF00)
+                .setTitle(`✅ ${pack.name} x${amount} Given`)
+                .setDescription(`Successfully gave ${amount} ${pack.name}${amount > 1 ? 's' : ''} to ${targetUser}!`)
+                .addFields(
+                    { name: 'Pack Type', value: pack.name, inline: true },
+                    { name: 'Amount Given', value: amount.toString(), inline: true },
+                    { name: 'Total Packs', value: user.packs[packType].toString(), inline: true }
+                );
                 
             return interaction.reply({ embeds: [embed], ephemeral: false });
         }
