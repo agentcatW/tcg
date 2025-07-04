@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const market = require('../../utils/market');
 
@@ -22,21 +22,21 @@ module.exports = {
         if (!listing) {
             return interaction.reply({
                 content: '❌ This listing is no longer available!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
         if (listing.sellerId === userId) {
             return interaction.reply({
                 content: '❌ You cannot buy your own listing!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
         if ((user.currency || 0) < listing.price) {
             return interaction.reply({
                 content: `❌ You don't have enough coins! You need ${listing.price} but only have ${user.currency || 0}.`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -44,7 +44,7 @@ module.exports = {
         if (!seller) {
             return interaction.reply({
                 content: '❌ Seller not found!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -83,7 +83,7 @@ module.exports = {
             console.error('Market purchase error:', error);
             await interaction.reply({
                 content: '❌ An error occurred while processing your purchase!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }

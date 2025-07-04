@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const { getAllCards } = require('../../utils/cards/rollUtils');
 const { RARITIES } = require('../../utils/cards/cardTemplate');
 
@@ -66,11 +66,12 @@ module.exports = {
             );
         }
 
-        const response = await interaction.reply({
+        await interaction.reply({
             embeds: [embed],
-            components: row.components.length > 0 ? [row] : [],
-            fetchReply: true
+            components: row.components.length > 0 ? [row] : []
         });
+
+        const response = await interaction.fetchReply();
 
         if (row.components.length > 0) {
             const filter = i => i.customId === 'prev' || i.customId === 'next';
@@ -78,7 +79,7 @@ module.exports = {
 
             collector.on('collect', async i => {
                 if (i.user.id !== interaction.user.id) {
-                    return i.reply({ content: 'Only the command user can interact with these buttons.', ephemeral: true });
+                    return i.reply({ content: 'Only the command user can interact with these buttons.', flags: MessageFlags.Ephemeral });
                 }
 
                 if (i.customId === 'prev' && currentPage > 1) {

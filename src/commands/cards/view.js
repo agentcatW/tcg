@@ -116,13 +116,14 @@ module.exports = {
             currentPage
         );
         
-        const response = await interaction.reply({
+        await interaction.reply({
             content: '**Your Card Collection**\n*Browse through your cards using the buttons below*',
             embeds: [embed],
             components: [row],
-            files: files,
-            fetchReply: true,
+            files: files
         });
+
+        const response = await interaction.fetchReply();
         
         const filter = i => i.user.id === interaction.user.id;
         const collector = response.createMessageComponentCollector({ 

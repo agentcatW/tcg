@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('@discordjs/builders');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const { 
     getCodeData, 
@@ -26,7 +26,7 @@ module.exports = {
                 .setColor(0xFF0000)
                 .setTitle('Invalid Code')
                 .setDescription('The code you entered is invalid or has expired.');
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
         
         if (!codeData.reusable && hasUsedCode(user, code)) {
@@ -34,7 +34,7 @@ module.exports = {
                 .setColor(0xFFA500) 
                 .setTitle('Code Already Used')
                 .setDescription('You have already redeemed this code.');
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
         
         if (!codeData.reusable) {
@@ -66,6 +66,6 @@ module.exports = {
                 { name: 'New Balance', value: `<:coin:1381692942196150292> **${user.currency.toLocaleString()} coins**` }
             );
             
-        interaction.reply({ embeds: [embed] });
+        interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

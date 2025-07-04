@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 
 module.exports = {
@@ -27,7 +27,7 @@ module.exports = {
         if (!user) {
             return interaction.reply({
                 content: 'User not found in the database.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -63,7 +63,7 @@ async function showCards(interaction, user, targetUser) {
             
         return interaction.reply({ 
             content: message,
-            ephemeral: !isSelf
+            flags: MessageFlags.Ephemeral
         });
     }
 
@@ -122,12 +122,12 @@ async function showCards(interaction, user, targetUser) {
 
     const components = [row];
 
-    const response = await interaction.reply({
+    await interaction.reply({
         embeds: [embeds[0]],
-        components: components,
-        fetchReply: true,
-        ephemeral: interaction.ephemeral || false
+        components: components
     });
+
+    const response = await interaction.fetchReply();
 
     if (embeds.length <= 1) return;
 
@@ -224,7 +224,7 @@ async function showPacks(interaction, user, targetUser) {
             
         return interaction.reply({ 
             content: message,
-            ephemeral: !isSelf
+            flags: MessageFlags.Ephemeral
         });
     }
 

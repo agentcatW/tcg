@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, MessageFlags } = require('discord.js');
 const { getCardById } = require('../../utils/cards/rollUtils');
 const { RARITIES } = require('../../utils/cards/cardTemplate');
 const { getImageBuffer } = require('../../utils/imageCache');
@@ -21,7 +21,7 @@ module.exports = {
         if (!card) {
             return interaction.reply({
                 content: '❌ No card found with that ID. Use `/catalog` to browse available cards.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 

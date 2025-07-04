@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const { getRandomCardOptions, RARITIES } = require('../../utils/cards/rollUtils');
 const { getSellPriceByOVR } = require('../../utils/cards/cardTemplate');
@@ -16,7 +16,7 @@ module.exports = {
         if (db.hasActiveRoll(userId)) {
             return interaction.reply({
                 content: 'You already have a roll in progress! Please complete or wait for it to time out.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -29,7 +29,7 @@ module.exports = {
                 .setTitle('Cooldown Active')
                 .setDescription(`You've already used your weekly roll. Please wait **${formattedTime}** before trying again.`);
                 
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         db.setRollActive(userId, 'weekly');
@@ -97,13 +97,14 @@ module.exports = {
                 );
             
             const { embed, files } = await createCardEmbed(options[0], 0);
-            const message = await interaction.editReply({
+            await interaction.editReply({
                 content: '**Weekly Roll** - Browse and select a card to keep:',
                 embeds: [embed],
                 components: [navRow],
-                files: files,
-                fetchReply: true
+                files: files
             });
+
+            const message = await interaction.fetchReply();
 
             const filter = i => i.user.id === interaction.user.id && 
                               (i.customId === 'prev_card' || i.customId === 'next_card' || i.customId === 'select_card');
@@ -135,13 +136,14 @@ module.exports = {
                                 .setStyle(ButtonStyle.Danger)
                         );
 
-                    const msg = await i.update({
+                    await i.update({
                         content: `✅ **You selected:** ${selectedCard.name}\nWould you like to keep or sell this card?`,
                         embeds: [cardEmbed],
                         components: [buttonRow],
-                        files: files,
-                        fetchReply: true
+                        files: files
                     });
+
+                    const msg = await i.fetchReply();
 
                     const buttonFilter = i => i.user.id === interaction.user.id && 
                                         (i.customId === 'quick_sell' || i.customId === 'keep_card');
@@ -215,7 +217,7 @@ module.exports = {
             console.error('Error in weeklyroll command:', error);
             await interaction.editReply({ 
                 content: 'An error occurred while processing your roll. Please try again later.',
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
     }

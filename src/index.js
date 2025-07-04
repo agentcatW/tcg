@@ -4,7 +4,8 @@ const {
     GatewayIntentBits, 
     ActionRowBuilder,
     ButtonBuilder,
-    EmbedBuilder
+    EmbedBuilder,
+    MessageFlags
 } = require('discord.js');
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v10');
@@ -192,7 +193,7 @@ client.on('interactionCreate', async interaction => {
             if (remainingTime > 0 && !(COOLDOWN_CONFIG.ADMIN_BYPASS && isAdmin)) {
                 return interaction.reply({
                     content: `⏱️ Please wait ${remainingTime.toFixed(1)} more seconds before using another command.`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
             
@@ -220,12 +221,12 @@ client.on('interactionCreate', async interaction => {
             if (interaction.replied || interaction.deferred) {
                 await interaction.editReply({ 
                     content: '❌ There was an error processing this interaction!', 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 });
             } else {
                 await interaction.reply({ 
                     content: '❌ There was an error processing this interaction!', 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 });
             }
         } catch (e) {

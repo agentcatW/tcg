@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const path = require('path');
 const fs = require('fs');
@@ -176,7 +176,7 @@ module.exports = {
         if (!isAdmin) {
             return interaction.reply({
                 content: '❌ This command is only available to administrators.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -193,7 +193,7 @@ module.exports = {
                 if (!card) {
                     return interaction.reply({
                         content: '❌ Card not found!',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
                 return this.giveCard(interaction, targetUser, card);
@@ -202,7 +202,7 @@ module.exports = {
                 if (!pack) {
                     return interaction.reply({
                         content: '❌ Pack not found!',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
                 return this.givePack(interaction, targetUser, pack);
@@ -214,7 +214,7 @@ module.exports = {
                 if (totalPages === 0) {
                     return interaction.reply({
                         content: 'No cards available!',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
                 
@@ -224,8 +224,7 @@ module.exports = {
                 const response = await interaction.reply({
                     embeds: [embed],
                     components: [row],
-                    files: files,
-                    ephemeral: false
+                    files: files
                 });
                 
                 const filter = i => i.user.id === interaction.user.id;
@@ -271,7 +270,7 @@ module.exports = {
                                 if (!i.replied && !i.deferred) {
                                     await i.reply({
                                         content: '❌ An error occurred while processing your request.',
-                                        ephemeral: true
+                                        flags: MessageFlags.Ephemeral
                                     }).catch(console.error);
                                 }
                             }
@@ -322,7 +321,7 @@ module.exports = {
                 .setColor(0x00FF00)
                 .setDescription(`✅ Successfully gave ${amount} coins to ${targetUser}!\nNew balance: ${newBalance}`);
                 
-            return interaction.reply({ embeds: [embed], ephemeral: false });
+            return interaction.reply({ embeds: [embed] });
             
         } else if (subcommand === 'pack') {
             const targetUser = interaction.options.getUser('user');
@@ -333,7 +332,7 @@ module.exports = {
             if (!pack) {
                 return interaction.reply({
                     content: '❌ Invalid pack type!',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
             
@@ -352,7 +351,7 @@ module.exports = {
                     { name: 'Total Packs', value: user.packs[packType].toString(), inline: true }
                 );
                 
-            return interaction.reply({ embeds: [embed], ephemeral: false });
+            return interaction.reply({ embeds: [embed] });
         }
     },
     
@@ -378,7 +377,7 @@ module.exports = {
                 } else if (!interaction.replied && !interaction.deferred) {
                     return interaction.reply({ 
                         embeds: [errorEmbed],
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 } else {
                     return interaction.editReply({ 
@@ -421,7 +420,7 @@ module.exports = {
                 } else if (!interaction.replied && !interaction.deferred) {
                     return interaction.reply({ 
                         embeds: [errorEmbed],
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 } else {
                     return interaction.editReply({ 
@@ -451,8 +450,7 @@ module.exports = {
                 });
             } else if (!interaction.replied && !interaction.deferred) {
                 return interaction.reply({
-                    embeds: [successEmbed],
-                    ephemeral: false
+                    embeds: [successEmbed]
                 });
             } else {
                 return interaction.editReply({
@@ -480,7 +478,7 @@ module.exports = {
             } else if (!interaction.replied && !interaction.deferred) {
                 return interaction.reply({ 
                     embeds: [errorEmbed],
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             } else {
                 return interaction.editReply({ 

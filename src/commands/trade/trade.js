@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } = require('discord.js');
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const path = require('path');
 const fs = require('fs');
@@ -43,7 +43,7 @@ module.exports = {
             const remainingTime = ((cooldownEnd - now) / 1000).toFixed(1);
             return interaction.reply({
                 content: `⏱️ Please wait ${remainingTime} seconds before using the trade command again.`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -56,21 +56,21 @@ module.exports = {
         if (yourCardIndex < 0 || theirCardIndex < 0) {
             return interaction.reply({
                 content: '❌ Please use positive numbers for card selection.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
         if (targetUser.bot) {
             return interaction.reply({
                 content: "❌ You can't trade with bots!",
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
         if (targetUser.id === userId) {
             return interaction.reply({
                 content: "❌ You can't trade with yourself!",
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -83,7 +83,7 @@ module.exports = {
 
             return interaction.reply({
                 content: "❌ One of you doesn't have any cards to trade!",
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -105,14 +105,14 @@ module.exports = {
         if (yourCardIndexActual < 0 || yourCardIndexActual >= yourCards.length) {
             return interaction.reply({
                 content: `❌ You don't have a card at position ${yourCardIndex + 1}. Use /collection to see your cards.`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
         if (theirCardIndexActual < 0 || theirCardIndexActual >= theirCards.length) {
             return interaction.reply({
                 content: `❌ That user doesn't have a card at position ${theirCardIndex + 1}.`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -122,14 +122,14 @@ module.exports = {
         if (db.isCardInAnyTeam(yourCard.id)) {
             return interaction.reply({
                 content: "❌ You can't trade a card that's in one of your teams. Please remove it from the team first.",
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
         if (db.isCardInAnyTeam(theirCard.id)) {
             return interaction.reply({
                 content: `❌ ${targetUser.username}'s card is in one of their teams. Please ask them to remove it from their team first.`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -164,7 +164,7 @@ module.exports = {
             if (user.currency < paymentAmount) {
                 return interaction.reply({
                     content: `❌ Trade denied! You don't have enough coins to cover the required payment of ${paymentAmount} <:coin:1381692942196150292> for this trade.`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
         } else if (yourCardOVR > theirCardOVR) {
@@ -176,7 +176,7 @@ module.exports = {
             if (target.currency < paymentAmount) {
                 return interaction.reply({
                     content: `❌ Trade denied! ${targetUser.username} doesn't have enough coins (${target.currency}/${paymentAmount}) to cover the required payment for this trade.`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
         } else {
@@ -265,13 +265,14 @@ module.exports = {
                         .setStyle(ButtonStyle.Danger)
                 );
 
-            const message = await interaction.reply({
+            await interaction.reply({
                 content: `<@${targetUser.id}>, you have received a trade offer!`,
                 embeds: [embed],
                 components: [row],
-                files: [tradeImage],
-                fetchReply: true
+                files: [tradeImage]
             });
+
+            const message = await interaction.fetchReply();
             
             const trade = tradeOffers.get(tradeId);
             if (trade) {
@@ -284,7 +285,7 @@ module.exports = {
             console.error('Error generating trade image:', error);
             return interaction.reply({
                 content: '❌ An error occurred while processing your trade. Please try again.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     },

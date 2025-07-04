@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { SlashCommandBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const { getTeamById, getUserOwnedTeams } = require('../../utils/teamUtils');
 const arena = require('../../utils/arena');
@@ -55,14 +55,14 @@ module.exports = {
         if (opponent.bot) {
             return interaction.reply({
                 content: 'You cannot challenge a bot to a friendly match!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
         if (opponent.id === challengerId) {
             return interaction.reply({
                 content: 'You cannot challenge yourself!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -70,14 +70,14 @@ module.exports = {
         if (!team || team.owner !== challengerId) {
             return interaction.reply({
                 content: 'You do not own this team or it does not exist!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
         if (arena.userToMatch.has(opponent.id)) {
             return interaction.reply({
                 content: `${opponent.username} is already in a match!`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -104,12 +104,13 @@ module.exports = {
                     .setStyle(ButtonStyle.Danger)
             );
 
-        const challengeMessage = await interaction.reply({
+        await interaction.reply({
             content: `${opponent}, you've been challenged to a friendly battle!`,
             embeds: [challengeEmbed],
-            components: [row],
-            fetchReply: true
+            components: [row]
         });
+
+        const challengeMessage = await interaction.fetchReply();
 
         const filter = i => {
             if (i.customId === 'decline') return i.user.id === opponent.id;
@@ -146,7 +147,7 @@ module.exports = {
             if (opponentTeams.length === 0) {
                 await response.update({
                     content: 'You need to create a team first!',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
                 return;
             }
@@ -184,13 +185,13 @@ module.exports = {
                 if (error.name === 'Error [InteractionCollectorError]') {
                     await interaction.followUp({
                         content: 'Team selection timed out. The challenge has been cancelled.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 } else {
                     console.error('Error in team selection:', error);
                     await interaction.followUp({
                         content: 'An error occurred while selecting a team.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -313,7 +314,7 @@ module.exports = {
             if (!challengerTeam || !opponentTeam) {
                 return buttonInteraction.followUp({
                     content: 'One of the teams could not be found.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -401,10 +402,11 @@ module.exports = {
                 client: interaction.client
             };
 
-            const message = await buttonInteraction.followUp({ 
-                content: 'Starting friendly battle...',
-                fetchReply: true 
+            await buttonInteraction.followUp({ 
+                content: 'Starting friendly battle...'
             });
+
+            const message = await interaction.fetchReply();
 
             activeBattles.set(matchId, { message });
             
@@ -421,7 +423,7 @@ module.exports = {
                 console.error('Error in friendly battle:', error);
                 await buttonInteraction.followUp({
                     content: 'An error occurred during the battle.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             } finally {
                 db.saveUsers();
@@ -442,7 +444,7 @@ module.exports = {
             try {
                 await buttonInteraction.followUp({
                     content: 'An error occurred while starting the friendly battle.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             } catch (e) {
                 console.error('Failed to send error message:', e);

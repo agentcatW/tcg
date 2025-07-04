@@ -1,4 +1,5 @@
 const config = require('../config/config.json');
+const { MessageFlags } = require('discord.js');
 
 function isOwner(userId) {
     return config.ownerId === userId;
@@ -12,7 +13,7 @@ async function ownerOnly(interaction, next) {
     if (!isOwner(interaction.user.id)) {
         await interaction.reply({
             content: '❌ This command is only available to the bot owner.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return false;
     }
@@ -23,7 +24,7 @@ async function adminOnly(interaction, next) {
     if (!isAdmin(interaction.user.id)) {
         await interaction.reply({
             content: '❌ This command is only available to administrators.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return false;
     }

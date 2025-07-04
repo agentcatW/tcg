@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const config = require('../../config/config.json');
 const { getRankFromElo, getRankName, getRankColor } = require('../../utils/rankUtils');
@@ -32,7 +32,7 @@ module.exports = {
                 if (sortedPlayers.length === 0) {
                     return interaction.reply({
                         content: 'No ranked players found!',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             } else if (subcommand === 'coins') {
@@ -54,7 +54,7 @@ module.exports = {
 
                     return interaction.reply({
                         embeds: [embed],
-                        ephemeral: false
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -199,11 +199,12 @@ module.exports = {
                 );
 
             const initialEmbed = await getLeaderboardEmbed(currentPage);
-            const message = await interaction.reply({
+            await interaction.reply({
                 embeds: [initialEmbed],
-                components: [row],
-                fetchReply: true
+                components: [row]
             });
+
+            const message = await interaction.fetchReply();
 
             const filter = i => i.user.id === interaction.user.id;
             const collector = message.createMessageComponentCollector({
@@ -238,7 +239,7 @@ module.exports = {
                     if (!i.replied && !i.deferred) {
                         await i.reply({
                             content: '❌ An error occurred while updating the leaderboard.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         }).catch(console.error);
                     }
                 }
@@ -274,7 +275,7 @@ module.exports = {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
                     content: 'An error occurred while fetching the leaderboard. Please try again later.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 }).catch(console.error);
             }
         }

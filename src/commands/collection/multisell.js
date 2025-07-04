@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ComponentType } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ComponentType, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const { getSellPriceByOVR } = require('../../utils/cards/cardTemplate');
 const { checkTradeStatus } = require('../../utils/tradeUtils');
@@ -34,7 +34,7 @@ module.exports = {
         if (minOvr > maxOvr) {
             return interaction.reply({
                 content: 'Minimum OVR cannot be greater than maximum OVR!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -56,7 +56,7 @@ module.exports = {
         if (eligibleCards.length === 0) {
             return interaction.reply({
                 content: `You don't have any cards between OVR ${minOvr} and ${maxOvr}!`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -93,11 +93,12 @@ module.exports = {
 
         const row = new ActionRowBuilder().addComponents(confirmButton, cancelButton);
 
-        const response = await interaction.reply({
+        await interaction.reply({
             embeds: [embed],
-            components: [row],
-            fetchReply: true
+            components: [row]
         });
+
+        const response = await interaction.fetchReply();
 
         const filter = i => i.user.id === interaction.user.id;
         const collector = response.createMessageComponentCollector({ 
@@ -139,7 +140,7 @@ module.exports = {
                 if (!i.replied && !i.deferred) {
                     await i.reply({
                         content: '❌ An error occurred while processing your request.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     }).catch(console.error);
                 }
             }

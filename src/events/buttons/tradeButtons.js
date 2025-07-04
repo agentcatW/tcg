@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const { tradeOffers } = require('../../utils/tradeStore');
 const { logTrade } = require('../../utils/tradeHistory');
@@ -15,21 +15,22 @@ async function handleTradeButton(interaction) {
         if (!interaction.replied && !interaction.deferred) {
             return interaction.reply({
                 content: '❌ This trade offer has expired or is invalid!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         return;
     }
 
     if (interaction.user.id !== trade.to && interaction.user.id !== trade.from) {
-        if (interaction.replied || interaction.deferred) {
-            return interaction.editReply({
-                content: '❌ This trade offer is not for you!'
+        if (interaction.deferred || interaction.replied) {
+            return interaction.followUp({
+                content: '❌ This trade offer is not for you!',
+                flags: MessageFlags.Ephemeral
             });
         }
         return interaction.reply({
             content: '❌ This trade offer is not for you!',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
 
@@ -62,7 +63,7 @@ async function handleTradeButton(interaction) {
             tradeOffers.delete(tradeId);
             return interaction.reply({
                 content: '❌ One or both cards are no longer available for trade!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -73,7 +74,7 @@ async function handleTradeButton(interaction) {
             tradeOffers.delete(tradeId);
             return interaction.reply({
                 content: '❌ One or both cards are no longer available for trade!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -222,7 +223,7 @@ async function handleTradeButton(interaction) {
                 await interaction.deferUpdate();
             } catch (error) {
                 try {
-                    await interaction.reply({ content: 'Trade completed!', ephemeral: true });
+                    await interaction.reply({ content: 'Trade completed!', flags: MessageFlags.Ephemeral });
                 } catch (replyError) {
                     console.error('Failed to acknowledge trade completion:', replyError);
                 }
@@ -267,7 +268,7 @@ async function handleTradeButton(interaction) {
                     await interaction.deferUpdate();
                 } catch (error) {
                     try {
-                        await interaction.reply({ content: 'Trade declined.', ephemeral: true });
+                        await interaction.reply({ content: 'Trade declined.', flags: MessageFlags.Ephemeral });
                     } catch (replyError) {
                         console.error('Failed to acknowledge trade decline:', replyError);
                     }
@@ -278,7 +279,7 @@ async function handleTradeButton(interaction) {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
                     content: 'There was an error processing your decline. Please try again.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
         }

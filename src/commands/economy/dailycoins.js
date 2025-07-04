@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('@discordjs/builders');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 
 module.exports = {
@@ -23,7 +23,7 @@ module.exports = {
                 .setTitle('Cooldown Active')
                 .setDescription(`You've already claimed your daily coins. Please wait **${hours}h ${minutes}m** before claiming again.`);
                 
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         const coinsEarned = Math.floor(Math.random() * 2001) + 500;

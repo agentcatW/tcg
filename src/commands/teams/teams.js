@@ -5,7 +5,7 @@ const {
     ButtonStyle,
     EmbedBuilder,
     AttachmentBuilder,
-    PermissionFlagsBits
+    MessageFlags
 } = require('discord.js');
 const badWordsList = require('badwords-list');
 
@@ -247,7 +247,7 @@ async function execute(interaction) {
         if (!validation.valid) {
             return interaction.reply({
                 content: validation.message,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -258,14 +258,14 @@ async function execute(interaction) {
         if (existingTeams.some(team => team.name.toLowerCase() === nameLower)) {
             return interaction.reply({
                 content: '❌ You already have a team with that name!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
         if (existingTeams.length >= 5) {
             return interaction.reply({
                 content: '❌ You can only have up to 5 teams!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -273,7 +273,7 @@ async function execute(interaction) {
             if (isProfane(name)) {
                 return interaction.reply({
                     content: '❌ Inappropriate team name detected. Please choose a different name.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
             
@@ -283,7 +283,7 @@ async function execute(interaction) {
             if (!validation.valid) {
                 return interaction.reply({
                     content: validation.message,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
             
@@ -292,14 +292,14 @@ async function execute(interaction) {
             if (existingTeams.some(team => team.name.toLowerCase() === nameLower)) {
                 return interaction.reply({
                     content: '❌ You already have a team with that name!',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
             
             if (existingTeams.length >= 5) {
                 return interaction.reply({
                     content: '❌ You can only have up to 5 teams!',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
             
@@ -311,14 +311,14 @@ async function execute(interaction) {
             } else {
                 return interaction.reply({
                     content: result?.message || '❌ Failed to create team. Please try again.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
         } catch (error) {
             console.error('Error creating team:', error);
             return interaction.reply({
                 content: '❌ An error occurred while creating the team. Please try again later.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -343,7 +343,7 @@ async function execute(interaction) {
         if (isNaN(cardNumber) || cardNumber < 1 || cardNumber > sortedCards.length) {
             return interaction.reply({
                 content: `❌ Invalid card number! Please use a number between 1 and ${sortedCards.length} from your collection.`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -351,14 +351,14 @@ async function execute(interaction) {
         if (!team) {
             return interaction.reply({
                 content: '❌ Team not found!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
         if (team.owner !== userId) {
             return interaction.reply({
                 content: '❌ You do not have permission to modify this team!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -366,7 +366,7 @@ async function execute(interaction) {
         if (!card) {
             return interaction.reply({
                 content: '❌ Card not found in your collection!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -374,7 +374,7 @@ async function execute(interaction) {
         if (!result.success) {
             return interaction.reply({
                 content: `❌ Error: ${result.message}`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -384,7 +384,7 @@ async function execute(interaction) {
             content: `✅ Successfully added **${card.name}** to Slot ${slot} of team **${team.name}**!`,
             embeds: [embed],
             files: files,
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
     
@@ -395,7 +395,7 @@ async function execute(interaction) {
         if (!team) {
             return interaction.reply({
                 content: '❌ Team not found!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -435,21 +435,21 @@ async function execute(interaction) {
         if (!team) {
             return interaction.reply({
                 content: '❌ Team not found!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
         if (team.owner !== userId) {
             return interaction.reply({
                 content: '❌ You do not have permission to modify this team!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
         const result = removeTeamSlot(team.id, slot);
         return interaction.reply({
             content: result.message,
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
     
@@ -461,7 +461,7 @@ async function execute(interaction) {
         if (!teamToDelete) {
             return interaction.reply({
                 content: '❌ Team not found or you do not have permission to delete it!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -495,13 +495,13 @@ async function execute(interaction) {
         return interaction.reply({
             embeds: [confirmEmbed],
             components: [row],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
     
     return interaction.reply({
         content: '❌ Unknown subcommand!',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
     });
 }
 

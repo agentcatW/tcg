@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, EmbedBuilder, AttachmentBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, EmbedBuilder, AttachmentBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const market = require('../../utils/market');
 const { getImageBuffer } = require('../../utils/imageCache');
@@ -115,7 +115,7 @@ module.exports = {
         if (sortedCards.length === 0) {
             return interaction.reply({
                 content: "You don't have any cards to list on the market!",
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -130,14 +130,15 @@ module.exports = {
             currentPage
         );
         
-        const response = await interaction.reply({
+        await interaction.reply({
             content: '**Marketplace - List a Card**\n*Browse your collection and select a card to list on the market*',
             embeds: [embed],
             components: [row],
             files: files,
-            fetchReply: true,
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
+
+        const response = await interaction.fetchReply();
         
         const filter = i => i.user.id === interaction.user.id;
         const collector = response.createMessageComponentCollector({ 
@@ -220,7 +221,7 @@ module.exports = {
                     if (isNaN(price) || price < minPrice || price > maxPrice) {
                         await modalSubmit.reply({
                             content: `❌ Invalid price. Please enter a number between ${minPrice} and ${maxPrice}.`,
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                         return;
                     }
@@ -266,14 +267,14 @@ module.exports = {
                     } else {
                         await modalSubmit.reply({
                             content: '❌ Failed to list the card. Please try again later.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                 } catch (error) {
                     console.error('Error in sell modal:', error);
                     await i.followUp({
                         content: 'The listing was cancelled or an error occurred.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
                 

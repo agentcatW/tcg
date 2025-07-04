@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const market = require('../../utils/market');
 
@@ -29,14 +29,14 @@ module.exports = {
                 if (!listing) {
                     return interaction.reply({
                         content: '❌ This listing is no longer available!',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
                 
                 if (listing.sellerId === interaction.user.id) {
                     return interaction.reply({
                         content: '❌ You cannot purchase your own listing!',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
 
@@ -51,11 +51,12 @@ module.exports = {
                                 .setStyle(ButtonStyle.Danger)
                         );
                     
-                    const response = await interaction.reply({
+                    await interaction.reply({
                         embeds: [embed],
-                        components: [row],
-                        fetchReply: true
+                        components: [row]
                     });
+
+                    const response = await interaction.fetchReply();
 
                     const filter = i => i.user.id === interaction.user.id && i.customId === `cancel_${listing.id}`;
                     const collector = response.createMessageComponentCollector({ filter, time: 60000 });
@@ -78,7 +79,7 @@ module.exports = {
                         } else {
                             await i.update({
                                 content: '❌ Failed to cancel listing!',
-                                ephemeral: true
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                     });
@@ -109,7 +110,7 @@ module.exports = {
                 if (listings.length === 0) {
                     return interaction.reply({
                         content: 'No listings available in the market!',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
 
@@ -155,21 +156,21 @@ module.exports = {
                 if (!currentPageData || !currentPageData.embed) {
                     return interaction.reply({
                         content: 'No listings available in the market!',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
 
                 const replyOptions = {
                     embeds: [currentPageData.embed],
-                    components: [row],
-                    fetchReply: true
+                    components: [row]
                 };
-
+                
                 if (currentPageData.files && currentPageData.files.length > 0) {
                     replyOptions.files = currentPageData.files;
                 }
-
-                const response = await interaction.reply(replyOptions);
+                
+                await interaction.reply(replyOptions);
+                const response = await interaction.fetchReply();
 
                 const filter = i => i.user.id === interaction.user.id;
                 const collector = response.createMessageComponentCollector({ 
@@ -203,7 +204,7 @@ module.exports = {
                         if (listing.sellerId === interaction.user.id) {
                             return i.reply({
                                 content: '❌ You cannot purchase your own listing!',
-                                ephemeral: true
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                         
@@ -213,14 +214,14 @@ module.exports = {
                         if (!buyer || !seller) {
                             return i.reply({
                                 content: '❌ An error occurred processing this transaction.',
-                                ephemeral: true
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                             
                         if ((buyer.currency || 0) < listing.price) {
                             return i.reply({
                                 content: `❌ You don't have enough coins! You need ${listing.price} but only have ${buyer.currency || 0}.`,
-                                ephemeral: true
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                         

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js');
 const { packs } = require('../../utils/shopItems');
 const { getAllCards } = require('../../utils/cards/rollUtils');
 const { RARITIES } = require('../../utils/cards/cardTemplate');
@@ -56,7 +56,7 @@ module.exports = {
         if (!isAdmin) {
             return interaction.reply({
                 content: '❌ This command is only available to administrators.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         await interaction.deferReply();
@@ -135,11 +135,12 @@ module.exports = {
                     .setDisabled(currentPage === packEmbeds.length - 1)
             );
 
-        const response = await interaction.editReply({
+        await interaction.editReply({
             embeds: [packEmbeds[currentPage].embed],
-            components: [row],
-            fetchReply: true
+            components: [row]
         });
+
+        const response = await interaction.fetchReply();
 
         const collector = response.createMessageComponentCollector({
             componentType: ComponentType.Button,
@@ -154,7 +155,7 @@ module.exports = {
                 clearTimeout(sessionTimeout);
                 
                 if (i.user.id !== interaction.user.id) {
-                    return i.reply({ content: 'These buttons are not for you!', ephemeral: true });
+                    return i.reply({ content: 'These buttons are not for you!', flags: MessageFlags.Ephemeral });
                 }
 
                 if (i.customId === 'prev' && currentIndex > 0) {

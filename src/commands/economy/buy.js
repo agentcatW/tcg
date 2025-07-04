@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const { packs } = require('../../utils/shopItems');
 
@@ -47,7 +47,7 @@ module.exports = {
         if (!pack) {
             return interaction.reply({
                 content: '❌ Invalid item selected.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -57,7 +57,7 @@ module.exports = {
         if (user.currency < totalCost) {
             return interaction.reply({
                 content: `❌ You don't have enough coins. You need ${totalCost.toLocaleString()} <:coin:1381692942196150292> but only have ${user.currency.toLocaleString()}.`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 

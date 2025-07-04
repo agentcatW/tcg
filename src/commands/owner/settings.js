@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { ownerOnly } = require('../../utils/permissions');
@@ -52,7 +52,7 @@ module.exports = {
         if (subcommand === 'reload') {
             await interaction.reply({
                 content: '✅ Configuration reloaded!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
             return;
         }
@@ -81,21 +81,21 @@ module.exports = {
                     if (!user) {
                         return interaction.reply({
                             content: '❌ Please specify a user to add as admin.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
 
                     if (user.id === interaction.client.user.id) {
                         return interaction.reply({
                             content: "❌ You can't add the bot as an admin.",
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
 
                     if (config.adminUserIds.includes(user.id)) {
                         return interaction.reply({
                             content: `❌ ${user} is already an admin.`,
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
 
@@ -110,14 +110,14 @@ module.exports = {
                     if (!user) {
                         return interaction.reply({
                             content: '❌ Please specify a user to remove from admins.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
 
                     if (user.id === config.ownerId) {
                         return interaction.reply({
                             content: '❌ You cannot remove the owner as an admin.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
 
@@ -125,7 +125,7 @@ module.exports = {
                     if (index === -1) {
                         return interaction.reply({
                             content: `❌ ${user} is not an admin.`,
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
 
@@ -137,7 +137,7 @@ module.exports = {
                     break;
             }
 
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
     },
 };

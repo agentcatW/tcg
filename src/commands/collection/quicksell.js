@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, EmbedBuilder, AttachmentBuilder, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const { getSellPriceByOVR } = require('../../utils/cards/cardTemplate');
 const { getImageBuffer } = require('../../utils/imageCache');
@@ -119,7 +119,7 @@ module.exports = {
         if (sortedCards.length === 0) {
             return interaction.reply({
                 content: "You don't have any cards to sell!",
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -141,13 +141,14 @@ module.exports = {
             currentPage
         );
         
-        const response = await interaction.reply({
+        await interaction.reply({
             content: `**Selling Cards**\n*Browse your collection and select a card to sell*`,
             embeds: [embed],
             components: [row],
-            files: files,
-            fetchReply: true
+            files: files
         });
+
+        const response = await interaction.fetchReply();
         
         const filter = i => i.user.id === interaction.user.id;
         const collector = response.createMessageComponentCollector({ 
@@ -272,7 +273,7 @@ module.exports = {
                     console.error('Error in sell confirmation:', error);
                     await interaction.followUp({
                         content: 'The confirmation timed out. Please use the command again if you want to sell a card.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
                 

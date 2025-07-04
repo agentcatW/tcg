@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js');
 const db = require('../../utils/database');
 const { packs } = require('../../utils/shopItems');
 const { getAllCards, getRandomCharacter, generateCard } = require('../../utils/cards/rollUtils');
@@ -244,7 +244,7 @@ module.exports = {
                                 console.error('Error handling button interaction:', error);
                                 await button.reply({ 
                                     content: 'An error occurred while processing your request.', 
-                                    ephemeral: true 
+                                    flags: MessageFlags.Ephemeral 
                                 });
                                 buttonCollector.stop('error');
                             }
@@ -268,7 +268,7 @@ module.exports = {
                                     console.error('Error in auto-keep:', error);
                                     await i.followUp({ 
                                         content: 'An error occurred while processing your card.', 
-                                        ephemeral: true 
+                                        flags: MessageFlags.Ephemeral 
                                     });
                                 }
                             }
@@ -278,7 +278,7 @@ module.exports = {
                         console.error('Error updating message with card:', error);
                         await i.followUp({ 
                             content: 'An error occurred while showing your card.', 
-                            ephemeral: true 
+                            flags: MessageFlags.Ephemeral 
                         });
                     }
                 }
@@ -298,7 +298,7 @@ module.exports = {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({ 
                     content: 'An error occurred while processing your request.', 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 });
             } else {
                 await interaction.editReply({ 
